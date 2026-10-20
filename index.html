@@ -19,7 +19,7 @@
     body {
       background: radial-gradient(circle at 50% 20%, #1c120c 0%, var(--caoba-fondo) 100%);
       color: var(--pergamino);
-      font-family: 'Palatino', 'Georgia', serif;
+      font-family: 'Cinzel', 'Palatino', 'Georgia', serif;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -149,9 +149,15 @@
       border: 1.5px solid var(--oro-medio); color: #cbe6ff; padding: 12px 20px;
       font-size: 1.05rem; border-radius: 4px; cursor: pointer; font-family: inherit; width: 100%;
       letter-spacing: 2px; text-transform: uppercase; margin-top: 15px;
+      transition: all 0.2s;
+    }
+    .btn-leer:hover {
+      background: linear-gradient(180deg, #2a5080 0%, #132b49 100%);
+      border-color: var(--oro-brillante);
+      color: #fff;
     }
 
-    /* Visor Embebido */
+    /* Visor Embebido con Pantalla de Carga */
     .visor-modal {
       display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
       background: #080605; z-index: 2000; flex-direction: column;
@@ -162,8 +168,34 @@
       padding: 10px 24px; display: flex; justify-content: space-between; align-items: center;
       border-bottom: 2px solid var(--oro-medio);
     }
-    .iframe-contenedor { flex-grow: 1; width: 100%; height: 100%; background: #111; }
+    .iframe-contenedor {
+      flex-grow: 1; width: 100%; height: 100%; background: #0c0806;
+      position: relative;
+    }
     #visor-iframe { width: 100%; height: 100%; border: none; }
+
+    /* Animación de carga mística */
+    .pantalla-carga-visor {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(circle at center, #1a100a 0%, #080504 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; z-index: 10; transition: opacity 0.4s ease;
+    }
+    .pantalla-carga-visor.oculto { opacity: 0; pointer-events: none; }
+    .runa-spinner {
+      width: 50px; height: 50px;
+      border: 3px solid rgba(201, 159, 70, 0.2);
+      border-top-color: var(--oro-brillante);
+      border-radius: 50%;
+      animation: girarRuna 0.9s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
+    }
+    @keyframes girarRuna {
+      to { transform: rotate(360deg); }
+    }
+    .texto-carga {
+      font-size: 1rem; color: var(--oro-brillante); letter-spacing: 2px;
+      text-transform: uppercase; text-shadow: 0 2px 4px #000;
+    }
   </style>
 </head>
 <body>
@@ -200,13 +232,17 @@
     </div>
   </div>
 
-  <!-- Visor Embebido Libre de Bloqueos -->
+  <!-- Visor Embebido con Pantalla de Carga y Precarga -->
   <div class="visor-modal" id="modal-visor">
     <div class="barra-visor">
       <span id="visor-titulo" style="color: var(--oro-brillante); letter-spacing: 1px;"></span>
       <button class="cerrar-btn" onclick="cerrarVisor()">✕ Cerrar Lectura</button>
     </div>
     <div class="iframe-contenedor">
+      <div class="pantalla-carga-visor" id="pantalla-carga">
+        <div class="runa-spinner"></div>
+        <div class="texto-carga">Invocando grimorio...</div>
+      </div>
       <iframe id="visor-iframe" src="" allow="autoplay"></iframe>
     </div>
   </div>
@@ -219,6 +255,7 @@
     const modalDetalle = document.getElementById('modal-detalle');
     const modalVisor = document.getElementById('modal-visor');
     const visorIframe = document.getElementById('visor-iframe');
+    const pantallaCarga = document.getElementById('pantalla-carga');
     const placaActual = document.getElementById('placa-actual');
 
     function obtenerEnlacePreviewDrive(urlOriginal) {
@@ -301,21 +338,35 @@
       document.getElementById('detalle-tomo').textContent = libro.tomo !== null ? libro.tomo : 'Único';
       document.getElementById('detalle-portada').src = libro.rutaPortada || '';
       modalDetalle.classList.add('activo');
+
+      // PRECARGA INVISIBLE: empieza a conectar con Google Drive apenas abrís la tarjeta
+      const urlPreview = obtenerEnlacePreviewDrive(libro.rutaPdf);
+      if (visorIframe.src !== urlPreview) {
+        pantallaCarga.classList.remove('oculto');
+        visorIframe.src = urlPreview;
+      }
     }
 
     function cerrarDetalle() { modalDetalle.classList.remove('activo'); }
+
+    // Ocultar pantalla de carga cuando el iframe finaliza
+    visorIframe.addEventListener('load', () => {
+      setTimeout(() => {
+        pantallaCarga.classList.add('oculto');
+      }, 300);
+    });
 
     document.getElementById('btn-iniciar-lectura').addEventListener('click', () => {
       if (!libroSeleccionado) return;
       cerrarDetalle();
       document.getElementById('visor-titulo').textContent = `${libroSeleccionado.saga} - ${libroSeleccionado.titulo}`;
-      visorIframe.src = obtenerEnlacePreviewDrive(libroSeleccionado.rutaPdf);
       modalVisor.classList.add('activo');
     });
 
     function cerrarVisor() {
       modalVisor.classList.remove('activo');
       visorIframe.src = '';
+      pantallaCarga.classList.remove('oculto');
       libroSeleccionado = null;
     }
 
